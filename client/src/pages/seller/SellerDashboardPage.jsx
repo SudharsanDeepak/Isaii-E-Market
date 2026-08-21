@@ -8,7 +8,8 @@ import {
   AlertTriangle,
   PlusCircle,
   ArrowRight,
-  Boxes
+  Boxes,
+  Sparkles
 } from 'lucide-react';
 import api from '../../services/api';
 import SellerSidebar from '../../components/seller/SellerSidebar';
@@ -19,23 +20,40 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 const SellerDashboardPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/seller/dashboard');
+      if (res.data.success) {
+        setData(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        setLoading(true);
-        const res = await api.get('/seller/dashboard');
-        if (res.data.success) {
-          setData(res.data);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDashboard();
   }, []);
+
+  const handleSeedDemoProducts = async () => {
+    try {
+      setSeeding(true);
+      const res = await api.post('/seller/seed-demo');
+      if (res.data.success) {
+        fetchDashboard();
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to seed sample products.');
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -60,13 +78,28 @@ const SellerDashboardPage = () => {
               <p className="text-xs text-slate-400 mt-1">Real-time overview of products, revenues, and orders</p>
             </div>
 
-            <Link
-              to="/seller/products/add"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-[#8B5CF6] to-[#E83E8C] shadow-md shadow-purple-950/40 hover:scale-[1.02] transition-all"
-            >
-              <PlusCircle size={15} />
-              <span>Add New Product</span>
-            </Link>
+            <div className="flex items-center gap-2.5">
+              {stats.totalProducts === 0 && (
+                <button
+                  type="button"
+                  onClick={handleSeedDemoProducts}
+                  disabled={seeding}
+                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-xs text-purple-200 bg-white/5 hover:bg-purple-950/40 border border-purple-500/30 hover:border-purple-500/60 shadow-sm transition-all disabled:opacity-50"
+                  title="Populate demo products into this seller account"
+                >
+                  <Sparkles size={14} className={seeding ? 'animate-spin text-purple-400' : 'text-purple-400'} />
+                  <span>{seeding ? 'Importing...' : 'Load Sample Products'}</span>
+                </button>
+              )}
+
+              <Link
+                to="/seller/products/add"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-[#8B5CF6] to-[#E83E8C] shadow-md shadow-purple-950/40 hover:scale-[1.02] transition-all"
+              >
+                <PlusCircle size={15} />
+                <span>Add New Product</span>
+              </Link>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

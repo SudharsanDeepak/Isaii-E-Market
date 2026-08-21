@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Boxes, Plus, Edit3, Search, AlertTriangle } from 'lucide-react';
+import { Boxes, Plus, Edit3, Search, AlertTriangle, Sparkles } from 'lucide-react';
 import api from '../../services/api';
 import SellerSidebar from '../../components/seller/SellerSidebar';
 import Badge from '../../components/common/Badge';
@@ -11,6 +11,7 @@ const SellerInventoryPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
+  const [seeding, setSeeding] = useState(false);
 
   const fetchProducts = async () => {
     try {
@@ -29,6 +30,21 @@ const SellerInventoryPage = () => {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  const handleSeedDemoProducts = async () => {
+    try {
+      setSeeding(true);
+      const res = await api.post('/seller/seed-demo');
+      if (res.data.success) {
+        fetchProducts();
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to seed sample products.');
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const handleQuickAddStock = async (product, amount) => {
     try {
@@ -64,6 +80,18 @@ const SellerInventoryPage = () => {
               <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Inventory Monitor</h1>
               <p className="text-xs text-slate-400 mt-1">Real-time inventory levels, health badges, and stock adjustment</p>
             </div>
+
+            {products.length === 0 && (
+              <button
+                type="button"
+                onClick={handleSeedDemoProducts}
+                disabled={seeding}
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-xs text-purple-200 bg-white/5 hover:bg-purple-950/40 border border-purple-500/30 hover:border-purple-500/60 shadow-sm transition-all disabled:opacity-50"
+              >
+                <Sparkles size={14} className={seeding ? 'animate-spin text-purple-400' : 'text-purple-400'} />
+                <span>{seeding ? 'Importing...' : 'Load Sample Products'}</span>
+              </button>
+            )}
           </div>
 
           <div className="relative">
@@ -81,10 +109,23 @@ const SellerInventoryPage = () => {
             {loading ? (
               <LoadingSpinner text="Analyzing inventory levels..." />
             ) : filteredProducts.length === 0 ? (
-              <div className="text-center py-12 space-y-3">
-                <Boxes size={32} className="mx-auto text-slate-500" />
-                <h3 className="text-sm font-bold text-white">No inventory items</h3>
-                <p className="text-xs text-slate-400">Listed products will be tracked here.</p>
+              <div className="text-center py-12 space-y-4 max-w-sm mx-auto">
+                <Boxes size={36} className="mx-auto text-[#8B5CF6]" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">No inventory items</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    No products found for this merchant account. Import sample products to monitor stock levels.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSeedDemoProducts}
+                  disabled={seeding}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-[#8B5CF6] to-[#E83E8C] shadow-md transition-all"
+                >
+                  <Sparkles size={14} />
+                  <span>{seeding ? 'Importing...' : 'Import Sample Inventory'}</span>
+                </button>
               </div>
             ) : (
               <div className="overflow-x-auto">

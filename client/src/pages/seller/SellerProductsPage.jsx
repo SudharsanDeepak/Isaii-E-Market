@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Edit3, Trash2, Package, Search } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Package, Search, Sparkles, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 import SellerSidebar from '../../components/seller/SellerSidebar';
 import Badge from '../../components/common/Badge';
@@ -14,6 +14,8 @@ const SellerProductsPage = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState('');
 
   const fetchSellerProducts = async () => {
     try {
@@ -32,6 +34,23 @@ const SellerProductsPage = () => {
   useEffect(() => {
     fetchSellerProducts();
   }, []);
+
+  const handleSeedDemoProducts = async () => {
+    try {
+      setSeeding(true);
+      setFeedbackMsg('');
+      const res = await api.post('/seller/seed-demo');
+      if (res.data.success) {
+        setFeedbackMsg(res.data.message || 'Sample products successfully imported!');
+        fetchSellerProducts();
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to seed sample products.');
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const confirmDelete = (product) => {
     setProductToDelete(product);
@@ -73,14 +92,34 @@ const SellerProductsPage = () => {
               <p className="text-xs text-slate-400 mt-1">Manage listings, edit prices, stock, and categories</p>
             </div>
 
-            <Link
-              to="/seller/products/add"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-[#8B5CF6] to-[#E83E8C] shadow-md shadow-purple-950/40 hover:scale-[1.02] transition-all"
-            >
-              <PlusCircle size={15} />
-              <span>Add New Product</span>
-            </Link>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleSeedDemoProducts}
+                disabled={seeding || loading}
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-xs text-purple-200 bg-white/5 hover:bg-purple-950/40 border border-purple-500/30 hover:border-purple-500/60 shadow-sm transition-all disabled:opacity-50"
+                title="Populate demo products into this seller account"
+              >
+                <Sparkles size={14} className={seeding ? 'animate-spin text-purple-400' : 'text-purple-400'} />
+                <span>{seeding ? 'Seeding...' : 'Load Sample Products'}</span>
+              </button>
+
+              <Link
+                to="/seller/products/add"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-[#8B5CF6] to-[#E83E8C] shadow-md shadow-purple-950/40 hover:scale-[1.02] transition-all"
+              >
+                <PlusCircle size={15} />
+                <span>Add New Product</span>
+              </Link>
+            </div>
           </div>
+
+          {feedbackMsg && (
+            <div className="p-3 rounded-2xl bg-emerald-950/50 border border-emerald-800/60 text-emerald-300 text-xs flex items-center justify-between">
+              <span>{feedbackMsg}</span>
+              <button onClick={() => setFeedbackMsg('')} className="text-emerald-400 font-bold ml-4">✕</button>
+            </div>
+          )}
 
           <div className="relative">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -97,10 +136,37 @@ const SellerProductsPage = () => {
             {loading ? (
               <LoadingSpinner text="Fetching products..." />
             ) : filteredProducts.length === 0 ? (
-              <div className="text-center py-12 space-y-3">
-                <Package size={32} className="mx-auto text-slate-500" />
-                <h3 className="text-sm font-bold text-white">No products found</h3>
-                <p className="text-xs text-slate-400">Get started by creating your first product listing.</p>
+              <div className="text-center py-12 space-y-4 max-w-md mx-auto">
+                <div className="inline-flex p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400">
+                  <Package size={36} className="text-[#8B5CF6]" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-white">No products found in this store</h3>
+                  <p className="text-xs text-slate-400">
+                    You are logged into a custom merchant account. You can create your first product or instantly import ready-made demo products to explore the dashboard.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSeedDemoProducts}
+                    disabled={seeding}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-[#8B5CF6] to-[#E83E8C] shadow-lg shadow-purple-950/40 hover:scale-[1.02] transition-all disabled:opacity-50"
+                  >
+                    <Sparkles size={14} />
+                    <span>{seeding ? 'Importing Sample Data...' : 'Import Sample Inventory (1-Click)'}</span>
+                  </button>
+                  <Link
+                    to="/seller/products/add"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs text-slate-200 bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+                  >
+                    <PlusCircle size={14} />
+                    <span>Create Custom Listing</span>
+                  </Link>
+                </div>
+                <p className="text-[10px] text-slate-500 pt-1">
+                  💡 Tip: The pre-seeded demo catalog is also directly accessible by logging into the demo seller account (<code className="text-slate-400">seller@isaii.com</code> / <code className="text-slate-400">Password123!</code>).
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">

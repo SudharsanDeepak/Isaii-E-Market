@@ -311,10 +311,153 @@ const getSellerAnalytics = async (req, res, next) => {
   }
 };
 
+const seedSellerDemoProducts = async (req, res, next) => {
+  try {
+    const sellerId = req.user._id;
+    const sellerInfo = {
+      _id: sellerId,
+      name: req.user.name || 'Merchant',
+      email: req.user.email || 'seller@isaii.com'
+    };
+
+    const sampleProducts = [
+      {
+        name: 'Quantum ANC Pro Wireless Headphones',
+        description: 'Engineered with hybrid active noise cancellation, custom 40mm graphene drivers, and 45 hours of battery life with rapid USB-C charging.',
+        price: 7499,
+        category: 'Electronics',
+        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
+        stock: 35,
+        discount: 15,
+        brand: 'Isaii Acoustics',
+        rating: 4.8,
+        numReviews: 128
+      },
+      {
+        name: 'Pulse X Pro Smartwatch Titanium Edition',
+        description: 'Ultra-bright 1.95-inch AMOLED sapphire display, ECG and SpO2 health tracking, multi-sport GPS with 14-day standby.',
+        price: 5999,
+        category: 'Electronics',
+        image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
+        stock: 22,
+        discount: 10,
+        brand: 'Isaii Gear',
+        rating: 4.9,
+        numReviews: 94
+      },
+      {
+        name: 'ErgoLift Precision Aluminum Laptop Stand',
+        description: 'Aircraft-grade anodized aluminum construction with 360-degree ventilation flow and dual-axis ergonomic height adjustment.',
+        price: 1899,
+        category: 'Accessories',
+        image: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=800&q=80',
+        stock: 50,
+        discount: 5,
+        brand: 'Isaii Studio',
+        rating: 4.7,
+        numReviews: 76
+      },
+      {
+        name: 'Vortex RGB Hot-Swappable Mechanical Keyboard',
+        description: 'Compact 75% mechanical keyboard with factory-lubed custom linear switches, PBT shine-through keycaps, and tri-mode wireless connectivity.',
+        price: 4999,
+        category: 'Electronics',
+        image: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=800&q=80',
+        stock: 18,
+        discount: 20,
+        brand: 'Isaii Keyworks',
+        rating: 4.9,
+        numReviews: 152
+      },
+      {
+        name: 'AeroGlide Ultra-Cushion Running Sneakers',
+        description: 'Dynamic foam responsiveness with breathable woven knit mesh upper and anti-torsion carbon plate for all-day athletic performance.',
+        price: 3499,
+        category: 'Fashion',
+        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80',
+        stock: 28,
+        discount: 12,
+        brand: 'AeroWear',
+        rating: 4.6,
+        numReviews: 89
+      },
+      {
+        name: 'Apex WeatherShield Urban Commuter Backpack 28L',
+        description: 'Ballistic waterproof Cordura fabric with padded 16-inch laptop chamber, concealed anti-theft compartments, and magnetic Fidlock buckles.',
+        price: 2799,
+        category: 'Fashion',
+        image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=800&q=80',
+        stock: 40,
+        discount: 0,
+        brand: 'Isaii Carry',
+        rating: 4.8,
+        numReviews: 64
+      },
+      {
+        name: 'Halo Minimalist Ambient Smart Desk Lamp',
+        description: 'Touchless gesture dimming, circadian auto-color temperature tuning (2700K-6500K), and integrated 15W Qi fast charging base.',
+        price: 2499,
+        category: 'Home',
+        image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=800&q=80',
+        stock: 8,
+        discount: 15,
+        brand: 'Isaii Living',
+        rating: 4.5,
+        numReviews: 43
+      },
+      {
+        name: 'BoomSphere 360 Waterproof Bluetooth Speaker',
+        description: 'Immersive 360-degree spatial acoustic drivers with punchy bass radiators, IPX7 waterproof rating, and 24-hour party playback.',
+        price: 3299,
+        category: 'Electronics',
+        image: 'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=800&q=80',
+        stock: 0,
+        discount: 10,
+        brand: 'Isaii Acoustics',
+        rating: 4.7,
+        numReviews: 110
+      }
+    ];
+
+    if (isDbConnected()) {
+      const docs = sampleProducts.map((p) => ({
+        ...p,
+        seller: sellerId
+      }));
+      const created = await Product.insertMany(docs);
+      return res.status(201).json({
+        success: true,
+        message: `Successfully seeded ${created.length} sample products for your store.`,
+        products: created
+      });
+    } else {
+      const created = sampleProducts.map((p, idx) => {
+        const item = {
+          _id: `prod_${Date.now()}_${idx}`,
+          ...p,
+          seller: sellerInfo,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        memoryStore.products.unshift(item);
+        return item;
+      });
+      return res.status(201).json({
+        success: true,
+        message: `Successfully seeded ${created.length} sample products for your store.`,
+        products: created
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getSellerDashboard,
   getSellerProducts,
   getSellerOrders,
   updateOrderStatus,
-  getSellerAnalytics
+  getSellerAnalytics,
+  seedSellerDemoProducts
 };
