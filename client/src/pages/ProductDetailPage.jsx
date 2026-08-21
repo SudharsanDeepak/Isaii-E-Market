@@ -125,6 +125,9 @@ const ProductDetailPage = () => {
             <img
               src={product.image}
               alt={product.name}
+              onError={(e) => {
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=800&q=80';
+              }}
               className="w-full h-full object-cover"
             />
             {product.discount > 0 && (

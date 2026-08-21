@@ -165,19 +165,7 @@ const seedData = async () => {
         rating: 4.8,
         numReviews: 140
       },
-      {
-        name: 'ProAlign Ergonomic Mesh Studio Executive Chair',
-        description: 'Dynamic 3D lumbar support matrix, breathable high-tensile mesh backing, and multi-position tilt lock for 12+ hour comfort.',
-        price: 12999,
-        category: 'Home',
-        image: 'https://images.unsplash.com/photo-1580481077197-2a6237198bb9?auto=format&fit=crop&w=800&q=80',
-        stock: 6,
-        discount: 18,
-        brand: 'Isaii Studio',
-        seller: seller._id,
-        rating: 4.9,
-        numReviews: 53
-      },
+
       {
         name: 'GripPro High-Density Alignment Yoga Mat',
         description: 'Eco-friendly non-slip natural tree rubber surface with laser-etched alignment markings and 6mm joint cushion support.',
