@@ -1,5 +1,9 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
+const memoryStore = require('../services/memoryStore');
+
+const isDbConnected = () => mongoose.connection.readyState === 1;
 
 const protect = async (req, res, next) => {
   let token;
@@ -11,8 +15,17 @@ const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'isaii_super_secret_jwt_key_9837498273948729');
-      req.user = await User.findById(decoded.id).select('-password');
       
+      if (isDbConnected()) {
+        req.user = await User.findById(decoded.id).select('-password');
+      } else {
+        const u = memoryStore.users.find(user => String(user._id) === String(decoded.id));
+        if (u) {
+          const { password, ...userWithoutPassword } = u;
+          req.user = userWithoutPassword;
+        }
+      }
+
       if (!req.user) {
         return res.status(401).json({ success: false, message: 'User not found' });
       }
@@ -40,4 +53,4 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, authorize };
+module.exports = { protect, authorize, isDbConnected };

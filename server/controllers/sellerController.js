@@ -1,48 +1,92 @@
 const Product = require('../models/Product');
 const Order = require('../models/Order');
+const memoryStore = require('../services/memoryStore');
+const { isDbConnected } = require('../middleware/auth');
 
 const getSellerDashboard = async (req, res, next) => {
   try {
     const sellerId = req.user._id;
 
-    const products = await Product.find({ seller: sellerId });
-    const totalProducts = products.length;
-    const lowStockProducts = products.filter((p) => p.stock > 0 && p.stock <= 10).length;
-    const outOfStockProducts = products.filter((p) => p.stock === 0).length;
+    if (isDbConnected()) {
+      const products = await Product.find({ seller: sellerId });
+      const totalProducts = products.length;
+      const lowStockProducts = products.filter((p) => p.stock > 0 && p.stock <= 10).length;
+      const outOfStockProducts = products.filter((p) => p.stock === 0).length;
 
-    const orders = await Order.find({ 'items.seller': sellerId })
-      .populate('consumer', 'name email')
-      .populate('items.product', 'name price image category')
-      .sort({ createdAt: -1 });
+      const orders = await Order.find({ 'items.seller': sellerId })
+        .populate('consumer', 'name email')
+        .populate('items.product', 'name price image category')
+        .sort({ createdAt: -1 });
 
-    const totalOrders = orders.length;
-    const pendingOrders = orders.filter((o) => o.orderStatus === 'Pending').length;
+      const totalOrders = orders.length;
+      const pendingOrders = orders.filter((o) => o.orderStatus === 'Pending').length;
 
-    let totalSales = 0;
-    orders.forEach((order) => {
-      if (order.orderStatus !== 'Cancelled') {
-        order.items.forEach((item) => {
-          if (item.seller.toString() === sellerId.toString()) {
-            totalSales += item.price * item.quantity;
-          }
-        });
-      }
-    });
+      let totalSales = 0;
+      orders.forEach((order) => {
+        if (order.orderStatus !== 'Cancelled') {
+          order.items.forEach((item) => {
+            if (item.seller.toString() === sellerId.toString()) {
+              totalSales += item.price * item.quantity;
+            }
+          });
+        }
+      });
 
-    const recentOrders = orders.slice(0, 5);
+      const recentOrders = orders.slice(0, 5);
 
-    res.status(200).json({
-      success: true,
-      stats: {
-        totalProducts,
-        totalOrders,
-        totalSales: Math.round(totalSales * 100) / 100,
-        pendingOrders,
-        lowStockProducts,
-        outOfStockProducts
-      },
-      recentOrders
-    });
+      return res.status(200).json({
+        success: true,
+        stats: {
+          totalProducts,
+          totalOrders,
+          totalSales: Math.round(totalSales * 100) / 100,
+          pendingOrders,
+          lowStockProducts,
+          outOfStockProducts
+        },
+        recentOrders
+      });
+    } else {
+      const products = memoryStore.products.filter(
+        p => String(p.seller?._id || p.seller) === String(sellerId)
+      );
+      const totalProducts = products.length;
+      const lowStockProducts = products.filter((p) => p.stock > 0 && p.stock <= 10).length;
+      const outOfStockProducts = products.filter((p) => p.stock === 0).length;
+
+      const orders = memoryStore.orders.filter(o =>
+        o.items.some(i => String(i.seller?._id || i.seller) === String(sellerId))
+      );
+
+      const totalOrders = orders.length;
+      const pendingOrders = orders.filter((o) => o.orderStatus === 'Pending').length;
+
+      let totalSales = 0;
+      orders.forEach((order) => {
+        if (order.orderStatus !== 'Cancelled') {
+          order.items.forEach((item) => {
+            if (String(item.seller?._id || item.seller) === String(sellerId)) {
+              totalSales += item.price * item.quantity;
+            }
+          });
+        }
+      });
+
+      const recentOrders = orders.slice(0, 5);
+
+      return res.status(200).json({
+        success: true,
+        stats: {
+          totalProducts,
+          totalOrders,
+          totalSales: Math.round(totalSales * 100) / 100,
+          pendingOrders,
+          lowStockProducts,
+          outOfStockProducts
+        },
+        recentOrders
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -50,12 +94,17 @@ const getSellerDashboard = async (req, res, next) => {
 
 const getSellerProducts = async (req, res, next) => {
   try {
-    const products = await Product.find({ seller: req.user._id }).sort({ createdAt: -1 });
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      products
-    });
+    const sellerId = req.user._id;
+
+    if (isDbConnected()) {
+      const products = await Product.find({ seller: sellerId }).sort({ createdAt: -1 });
+      return res.status(200).json({ success: true, count: products.length, products });
+    } else {
+      const products = memoryStore.products
+        .filter(p => String(p.seller?._id || p.seller) === String(sellerId))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      return res.status(200).json({ success: true, count: products.length, products });
+    }
   } catch (error) {
     next(error);
   }
@@ -64,16 +113,21 @@ const getSellerProducts = async (req, res, next) => {
 const getSellerOrders = async (req, res, next) => {
   try {
     const sellerId = req.user._id;
-    const orders = await Order.find({ 'items.seller': sellerId })
-      .populate('consumer', 'name email phone')
-      .populate('items.product', 'name price image category')
-      .sort({ createdAt: -1 });
 
-    res.status(200).json({
-      success: true,
-      count: orders.length,
-      orders
-    });
+    if (isDbConnected()) {
+      const orders = await Order.find({ 'items.seller': sellerId })
+        .populate('consumer', 'name email phone')
+        .populate('items.product', 'name price image category')
+        .sort({ createdAt: -1 });
+
+      return res.status(200).json({ success: true, count: orders.length, orders });
+    } else {
+      const orders = memoryStore.orders
+        .filter(o => o.items.some(i => String(i.seller?._id || i.seller) === String(sellerId)))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      return res.status(200).json({ success: true, count: orders.length, orders });
+    }
   } catch (error) {
     next(error);
   }
@@ -91,31 +145,49 @@ const updateOrderStatus = async (req, res, next) => {
       });
     }
 
-    const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+    if (isDbConnected()) {
+      const order = await Order.findById(req.params.id);
+      if (!order) {
+        return res.status(404).json({ success: false, message: 'Order not found' });
+      }
+
+      const hasSellerItems = order.items.some(
+        (item) => item.seller.toString() === req.user._id.toString()
+      );
+
+      if (!hasSellerItems) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update this order' });
+      }
+
+      order.orderStatus = status;
+      if (status === 'Delivered' && order.paymentMethod === 'COD') {
+        order.paymentStatus = 'Completed';
+      }
+
+      await order.save();
+      return res.status(200).json({ success: true, message: `Order status updated to ${status}`, order });
+    } else {
+      const order = memoryStore.orders.find(o => String(o._id) === String(req.params.id));
+      if (!order) {
+        return res.status(404).json({ success: false, message: 'Order not found' });
+      }
+
+      const hasSellerItems = order.items.some(
+        (item) => String(item.seller?._id || item.seller) === String(req.user._id)
+      );
+
+      if (!hasSellerItems) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update this order' });
+      }
+
+      order.orderStatus = status;
+      if (status === 'Delivered' && order.paymentMethod === 'COD') {
+        order.paymentStatus = 'Completed';
+      }
+      order.updatedAt = new Date().toISOString();
+
+      return res.status(200).json({ success: true, message: `Order status updated to ${status}`, order });
     }
-
-    const hasSellerItems = order.items.some(
-      (item) => item.seller.toString() === req.user._id.toString()
-    );
-
-    if (!hasSellerItems) {
-      return res.status(403).json({ success: false, message: 'Not authorized to update this order' });
-    }
-
-    order.orderStatus = status;
-    if (status === 'Delivered' && order.paymentMethod === 'COD') {
-      order.paymentStatus = 'Completed';
-    }
-
-    await order.save();
-
-    res.status(200).json({
-      success: true,
-      message: `Order status updated to ${status}`,
-      order
-    });
   } catch (error) {
     next(error);
   }
@@ -124,57 +196,116 @@ const updateOrderStatus = async (req, res, next) => {
 const getSellerAnalytics = async (req, res, next) => {
   try {
     const sellerId = req.user._id;
-    const products = await Product.find({ seller: sellerId });
-    const orders = await Order.find({ 'items.seller': sellerId }).sort({ createdAt: -1 });
 
-    let totalRevenue = 0;
-    const productSalesMap = {};
-    const categorySalesMap = {};
+    if (isDbConnected()) {
+      const products = await Product.find({ seller: sellerId });
+      const orders = await Order.find({ 'items.seller': sellerId }).sort({ createdAt: -1 });
 
-    orders.forEach((order) => {
-      if (order.orderStatus !== 'Cancelled') {
-        order.items.forEach((item) => {
-          if (item.seller.toString() === sellerId.toString()) {
-            const revenue = item.price * item.quantity;
-            totalRevenue += revenue;
+      let totalRevenue = 0;
+      const productSalesMap = {};
+      const categorySalesMap = {};
 
-            const pId = item.product ? item.product.toString() : item.name;
-            if (!productSalesMap[pId]) {
-              productSalesMap[pId] = {
-                name: item.name,
-                image: item.image,
-                quantity: 0,
-                revenue: 0
-              };
+      orders.forEach((order) => {
+        if (order.orderStatus !== 'Cancelled') {
+          order.items.forEach((item) => {
+            if (item.seller.toString() === sellerId.toString()) {
+              const revenue = item.price * item.quantity;
+              totalRevenue += revenue;
+
+              const pId = item.product ? item.product.toString() : item.name;
+              if (!productSalesMap[pId]) {
+                productSalesMap[pId] = {
+                  name: item.name,
+                  image: item.image,
+                  quantity: 0,
+                  revenue: 0
+                };
+              }
+              productSalesMap[pId].quantity += item.quantity;
+              productSalesMap[pId].revenue += revenue;
             }
-            productSalesMap[pId].quantity += item.quantity;
-            productSalesMap[pId].revenue += revenue;
-          }
-        });
-      }
-    });
+          });
+        }
+      });
 
-    products.forEach((p) => {
-      categorySalesMap[p.category] = (categorySalesMap[p.category] || 0) + 1;
-    });
+      products.forEach((p) => {
+        categorySalesMap[p.category] = (categorySalesMap[p.category] || 0) + 1;
+      });
 
-    const bestSellers = Object.values(productSalesMap)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+      const bestSellers = Object.values(productSalesMap)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
 
-    const inventoryValue = products.reduce((acc, curr) => acc + curr.price * curr.stock, 0);
+      const inventoryValue = products.reduce((acc, curr) => acc + curr.price * curr.stock, 0);
 
-    res.status(200).json({
-      success: true,
-      analytics: {
-        totalRevenue: Math.round(totalRevenue * 100) / 100,
-        totalOrders: orders.length,
-        inventoryValue: Math.round(inventoryValue * 100) / 100,
-        totalProducts: products.length,
-        bestSellers,
-        categoryDistribution: categorySalesMap
-      }
-    });
+      return res.status(200).json({
+        success: true,
+        analytics: {
+          totalRevenue: Math.round(totalRevenue * 100) / 100,
+          totalOrders: orders.length,
+          inventoryValue: Math.round(inventoryValue * 100) / 100,
+          totalProducts: products.length,
+          bestSellers,
+          categoryDistribution: categorySalesMap
+        }
+      });
+    } else {
+      const products = memoryStore.products.filter(
+        p => String(p.seller?._id || p.seller) === String(sellerId)
+      );
+      const orders = memoryStore.orders.filter(o =>
+        o.items.some(i => String(i.seller?._id || i.seller) === String(sellerId))
+      );
+
+      let totalRevenue = 0;
+      const productSalesMap = {};
+      const categorySalesMap = {};
+
+      orders.forEach((order) => {
+        if (order.orderStatus !== 'Cancelled') {
+          order.items.forEach((item) => {
+            if (String(item.seller?._id || item.seller) === String(sellerId)) {
+              const revenue = item.price * item.quantity;
+              totalRevenue += revenue;
+
+              const pId = item.product?._id || item.product || item.name;
+              if (!productSalesMap[pId]) {
+                productSalesMap[pId] = {
+                  name: item.name,
+                  image: item.image,
+                  quantity: 0,
+                  revenue: 0
+                };
+              }
+              productSalesMap[pId].quantity += item.quantity;
+              productSalesMap[pId].revenue += revenue;
+            }
+          });
+        }
+      });
+
+      products.forEach((p) => {
+        categorySalesMap[p.category] = (categorySalesMap[p.category] || 0) + 1;
+      });
+
+      const bestSellers = Object.values(productSalesMap)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+
+      const inventoryValue = products.reduce((acc, curr) => acc + curr.price * curr.stock, 0);
+
+      return res.status(200).json({
+        success: true,
+        analytics: {
+          totalRevenue: Math.round(totalRevenue * 100) / 100,
+          totalOrders: orders.length,
+          inventoryValue: Math.round(inventoryValue * 100) / 100,
+          totalProducts: products.length,
+          bestSellers,
+          categoryDistribution: categorySalesMap
+        }
+      });
+    }
   } catch (error) {
     next(error);
   }
