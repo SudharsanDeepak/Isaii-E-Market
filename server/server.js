@@ -33,6 +33,16 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    message: 'Isaii E-Commerce API is running live',
+    health: '/api/health',
+    products: '/api/products',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'online',
